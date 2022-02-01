@@ -13,8 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-
-
 //void main() => runApp(MaterialApp(home: WebViewExample()));
 
 const String kNavigationExamplePage = '''
@@ -81,7 +79,9 @@ class WebViewExample extends StatefulWidget {
 
 class _WebViewExampleState extends State<WebViewExample> {
   final Completer<WebViewController> _controller =
-  Completer<WebViewController>();
+      Completer<WebViewController>();
+
+  bool isLoading=true;
 
   @override
   void initState() {
@@ -94,50 +94,68 @@ class _WebViewExampleState extends State<WebViewExample> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green,
-      appBar: AppBar(
-        backgroundColor: Colors.blueGrey,
-        title: const Text('shaplacityltd'),
-        // This drop down menu demonstrates that Flutter widgets can be shown over the web view.
-        actions: <Widget>[
-          NavigationControls(_controller.future),
-          //SampleMenu(_controller.future),
-        ],
-      ),
+      backgroundColor: Colors.blueGrey,
+      // appBar: AppBar(
+      //   backgroundColor: Colors.blueGrey,
+      //   title: const Text('shaplacityltd'),
+      //   // This drop down menu demonstrates that Flutter widgets can be shown over the web view.
+      //   actions: <Widget>[
+      //     NavigationControls(_controller.future),
+      //     //SampleMenu(_controller.future),
+      //   ],
+      // ),
       // We're using a Builder here so we have a context that is below the Scaffold
       // to allow calling Scaffold.of(context) so we can show a snackbar.
-      body: Builder(builder: (BuildContext context){
-        return WebView(
-          initialUrl: "http://crm.shaplacityltd.com.bd/super-admin/login/",
-          javascriptMode: JavascriptMode.unrestricted,
-          onWebViewCreated: (WebViewController webViewController){
-            _controller.complete(webViewController);
-          },
-          onProgress: (int progress) {
-            print('WebView is loading (progress : $progress%)');
-          },
-          javascriptChannels: <JavascriptChannel>{
-            _toasterJavascriptChannel(context),
-          },
-          navigationDelegate: (NavigationRequest request) {
-            if (request.url.startsWith('https://www.youtube.com/')) {
-              print('blocking navigation to $request}');
-              return NavigationDecision.prevent;
-            }
-            print('allowing navigation to $request');
-            return NavigationDecision.navigate;
-          },
-          onPageStarted: (String url) {
-            print('Page started loading: $url');
-          },
-          onPageFinished: (String url) {
-            print('Page finished loading: $url');
-          },
-          gestureNavigationEnabled: true,
-          backgroundColor: const Color(0x00000000),
+      body: Builder(builder: (BuildContext context) {
+        return SafeArea(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              WebView(
+                initialUrl: "https://crm.shaplacityltd.com.bd/super-admin/login/",
+                javascriptMode: JavascriptMode.unrestricted,
+                onWebViewCreated: (WebViewController webViewController) {
+                  _controller.complete(webViewController);
+                },
+                onProgress: (int progress) {
+                  print('WebView is loading (progress : $progress%)');
+                },
+                javascriptChannels: <JavascriptChannel>{
+                  _toasterJavascriptChannel(context),
+                },
+                navigationDelegate: (NavigationRequest request) {
+                  if (request.url.startsWith('https://www.youtube.com/')) {
+                    print('blocking navigation to $request}');
+                    return NavigationDecision.prevent;
+                  }
+                  print('allowing navigation to $request');
+                  return NavigationDecision.navigate;
+                },
+                onPageStarted: (String url) {
+                  print('Page started loading: $url');
+                },
+                onPageFinished: (String url) {
+                  print('Page finished loading: $url');
+                  setState(() {
+                    isLoading = false;
+                  });
+                },
+                gestureNavigationEnabled: true,
+                backgroundColor: const Color(0x00000000),
+              ),
+              isLoading ?const Center(
+                child: CircularProgressIndicator(
+                  backgroundColor: Colors.orange,
+                  color: Colors.red,
+                  strokeWidth: 10,
+                ),
+              ) : Stack(),
+            ],
+          ),
         );
       }),
-      floatingActionButton: favoriteButton(),
+      //floatingActionButton: favoriteButton(),
+      bottomNavigationBar: NavigationControls(_controller.future),
     );
   }
 
@@ -147,7 +165,11 @@ class _WebViewExampleState extends State<WebViewExample> {
         onMessageReceived: (JavascriptMessage message) {
           // ignore: deprecated_member_use
           Scaffold.of(context).showSnackBar(
-            SnackBar(content: Text(message.message)),
+            SnackBar(
+              content: Text(
+                message.message,
+              ),
+            ),
           );
         });
   }
@@ -191,7 +213,7 @@ enum MenuOptions {
 }
 
 class SampleMenu extends StatelessWidget {
-  SampleMenu(this.controller);
+  SampleMenu(this.controller, {Key? key}) : super(key: key);
 
   final Future<WebViewController> controller;
   final CookieManager cookieManager = CookieManager();
@@ -319,7 +341,7 @@ class SampleMenu extends StatelessWidget {
   Future<void> _onListCookies(
       WebViewController controller, BuildContext context) async {
     final String cookies =
-    await controller.runJavascriptReturningResult('document.cookie');
+        await controller.runJavascriptReturningResult('document.cookie');
     // ignore: deprecated_member_use
     Scaffold.of(context).showSnackBar(SnackBar(
       content: Column(
@@ -374,9 +396,10 @@ class SampleMenu extends StatelessWidget {
   Future<void> _onNavigationDelegateExample(
       WebViewController controller, BuildContext context) async {
     final String contentBase64 =
-    base64Encode(const Utf8Encoder().convert(kNavigationExamplePage));
+        base64Encode(const Utf8Encoder().convert(kNavigationExamplePage));
     await controller.loadUrl('data:text/html;base64,$contentBase64');
   }
+
   Future<void> _onSetCookie(
       WebViewController controller, BuildContext context) async {
     await CookieManager().setCookie(
@@ -425,7 +448,7 @@ class SampleMenu extends StatelessWidget {
     }
     final List<String> cookieList = cookies.split(';');
     final Iterable<Text> cookieWidgets =
-    cookieList.map((String cookie) => Text(cookie));
+        cookieList.map((String cookie) => Text(cookie));
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
@@ -461,47 +484,48 @@ class NavigationControls extends StatelessWidget {
             snapshot.connectionState == ConnectionState.done;
         final WebViewController? controller = snapshot.data;
         return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             IconButton(
               icon: const Icon(Icons.arrow_back_ios),
               onPressed: !webViewReady
                   ? null
                   : () async {
-                if (await controller!.canGoBack()) {
-                  await controller.goBack();
-                } else {
-                  // ignore: deprecated_member_use
-                  Scaffold.of(context).showSnackBar(
-                    const SnackBar(content: Text('No back history item')),
-                  );
-                  return;
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_forward_ios),
-              onPressed: !webViewReady
-                  ? null
-                  : () async {
-                if (await controller!.canGoForward()) {
-                  await controller.goForward();
-                } else {
-                  // ignore: deprecated_member_use
-                  Scaffold.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('No forward history item')),
-                  );
-                  return;
-                }
-              },
+                      if (await controller!.canGoBack()) {
+                        await controller.goBack();
+                      } else {
+                        // ignore: deprecated_member_use
+                        Scaffold.of(context).showSnackBar(
+                          const SnackBar(content: Text('No back history item')),
+                        );
+                        return;
+                      }
+                    },
             ),
             IconButton(
               icon: const Icon(Icons.replay),
               onPressed: !webViewReady
                   ? null
                   : () {
-                controller!.reload();
-              },
+                      controller!.reload();
+                    },
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_forward_ios),
+              onPressed: !webViewReady
+                  ? null
+                  : () async {
+                      if (await controller!.canGoForward()) {
+                        await controller.goForward();
+                      } else {
+                        // ignore: deprecated_member_use
+                        Scaffold.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('No forward history item')),
+                        );
+                        return;
+                      }
+                    },
             ),
           ],
         );

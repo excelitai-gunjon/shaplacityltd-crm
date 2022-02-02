@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:shaplacityltd/web_view_1.dart';
-import 'package:shaplacityltd/web_view_2.dart';
+import 'package:shaplacityltd/core/services/internet_connection_state.dart';
+import 'package:shaplacityltd/ui/my_app.dart';
+import 'package:shaplacityltd/ui/test_connectivity_page.dart';
+//import 'package:shaplacityltd/ui/web_view_1.dart';
+import 'package:shaplacityltd/ui/web_view_2.dart';
+//import 'package:shaplacityltd/ui/web_view_2.dart';
 
-void main() {
-  runApp(const MyApp());
+void main(){
+  // ConnectionStatusSingleton connectionStatus = ConnectionStatusSingleton.getInstance();
+  // connectionStatus.initialize();
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -27,7 +33,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         //primarySwatch: Colors.blue,
       ),
-      home: const WebViewExample(),
+      home:const WebViewExample(),
     );
   }
 }

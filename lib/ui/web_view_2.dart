@@ -9,8 +9,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shaplacityltd/core/services/internet_connectivity_class.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 //void main() => runApp(MaterialApp(home: WebViewExample()));
@@ -80,19 +82,51 @@ class WebViewExample extends StatefulWidget {
 class _WebViewExampleState extends State<WebViewExample> {
   final Completer<WebViewController> _controller =
       Completer<WebViewController>();
+  Map _source = {ConnectivityResult.none: false};
+  final MyConnectivity _connectivity = MyConnectivity.instance;
 
-  bool isLoading=true;
+  bool pageLoadedFinished = false;
+  bool? isOnline;
+
+  final StreamController<int> streamController = StreamController<int>();
 
   @override
   void initState() {
     super.initState();
+    _connectivity.initialise();
+    _connectivity.myStream.listen((source) {
+      setState(() => _source = source);
+    });
     if (Platform.isAndroid) {
       WebView.platform = SurfaceAndroidWebView();
     }
   }
 
   @override
+  void dispose() {
+    _connectivity.disposeStream();
+    super.dispose();
+    streamController.close();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    bool data;
+    String string;
+    switch (_source.keys.toList()[0]) {
+      case ConnectivityResult.mobile:
+        string = 'Mobile: Online';
+        data = true;
+        break;
+      case ConnectivityResult.wifi:
+        string = 'WiFi: Online';
+        data = true;
+        break;
+      case ConnectivityResult.none:
+      default:
+        string = 'Offline';
+        data = false;
+    }
     return Scaffold(
       backgroundColor: Colors.blueGrey,
       // appBar: AppBar(
@@ -111,45 +145,102 @@ class _WebViewExampleState extends State<WebViewExample> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              WebView(
-                initialUrl: "https://crm.shaplacityltd.com.bd/super-admin/login/",
-                javascriptMode: JavascriptMode.unrestricted,
-                onWebViewCreated: (WebViewController webViewController) {
-                  _controller.complete(webViewController);
-                },
-                onProgress: (int progress) {
-                  print('WebView is loading (progress : $progress%)');
-                },
-                javascriptChannels: <JavascriptChannel>{
-                  _toasterJavascriptChannel(context),
-                },
-                navigationDelegate: (NavigationRequest request) {
-                  if (request.url.startsWith('https://www.youtube.com/')) {
-                    print('blocking navigation to $request}');
-                    return NavigationDecision.prevent;
-                  }
-                  print('allowing navigation to $request');
-                  return NavigationDecision.navigate;
-                },
-                onPageStarted: (String url) {
-                  print('Page started loading: $url');
-                },
-                onPageFinished: (String url) {
-                  print('Page finished loading: $url');
-                  setState(() {
-                    isLoading = false;
-                  });
-                },
-                gestureNavigationEnabled: true,
-                backgroundColor: const Color(0x00000000),
-              ),
-              isLoading ?const Center(
-                child: CircularProgressIndicator(
-                  backgroundColor: Colors.orange,
-                  color: Colors.red,
-                  strokeWidth: 10,
-                ),
-              ) : Stack(),
+              data
+                  ? WebView(
+                      initialUrl:
+                          "https://crm.shaplacityltd.com.bd/super-admin/login/",
+                      javascriptMode: JavascriptMode.unrestricted,
+                      onWebViewCreated: (WebViewController webViewController) {
+                        _controller.complete(webViewController);
+                      },
+                      onProgress: (int progress) {
+                        print('WebView is loading (progress : $progress%)');
+                        streamController.sink.add(progress);
+                      },
+                      javascriptChannels: <JavascriptChannel>{
+                        _toasterJavascriptChannel(context),
+                      },
+                      navigationDelegate: (NavigationRequest request) {
+                        if (request.url
+                            .startsWith('https://www.youtube.com/')) {
+                          print('blocking navigation to $request}');
+                          return NavigationDecision.prevent;
+                        }
+                        print('allowing navigation to $request');
+                        return NavigationDecision.navigate;
+                      },
+                      onPageStarted: (String url) {
+                        print('Page started loading: $url');
+                      },
+                      onPageFinished: (String url) {
+                        print('Page finished loading: $url');
+                        setState(() {
+                          pageLoadedFinished = true;
+                        });
+                      },
+                      gestureNavigationEnabled: true,
+                      backgroundColor: const Color(0x00000000),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Center(
+                          child: Text("Check your internet Connection"),
+                        ),
+                        Center(
+                          child: CircularProgressIndicator(
+                            backgroundColor: Colors.orange,
+                            color: Colors.red,
+                            strokeWidth: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+              // if (string == 'Offline')
+              //   Column(
+              //     children: const [
+              //       Center(
+              //         child: Text("Check your internet Connection"),
+              //       ),
+              //       Center(
+              //         child: CircularProgressIndicator(
+              //           backgroundColor: Colors.orange,
+              //           color: Colors.red,
+              //           strokeWidth: 10,
+              //         ),
+              //       ),
+              //     ],
+              //   )
+              // else
+              pageLoadedFinished?
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Center(
+                            child: CircularProgressIndicator(
+                              backgroundColor: Colors.orange,
+                              color: Colors.amber,
+                              strokeWidth: 10,
+                            ),
+                          ),
+                          StreamBuilder(
+                            initialData: 0,
+                            stream: streamController.stream,
+                            builder: (context, snapshot) {
+                              return Text(
+                                'Loading...' + snapshot.data.toString()+"%",
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 20,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      )
+                    : Stack(),
             ],
           ),
         );
